@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>TestEater – Study Guide to Test</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+  <!-- Supabase CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: #0f172a;
+      color: #e5e7eb;
+      margin: 0;
+      padding: 20px;
+    }
+    h1, h2 {
+      text-align: center;
+    }
+    .card {
+      max-width: 800px;
+      margin: 20px auto;
+      background: #020617;
+      padding: 20px;
+      border-radius: 10px;
+      box-shadow: 0 0 20px rgba(0,0,0,0.4);
+    }
+    textarea, input, button {
+      width: 100%;
+      margin-top: 10px;
+      padding: 10px;
+      border-radius: 6px;
+      border: none;
+      font-size: 16px;
+    }
+    button {
+      background: #2563eb;
+      color: white;
+      cursor: pointer;
+    }
+    button:hover {
+      background: #1d4ed8;
+    }
+    .question {
+      margin: 15px 0;
+    }
+    .hidden {
+      display: none;
+    }
+  </style>
+</head>
+<body>
+
+<h1>🧠 TestEater</h1>
+<p style="text-align:center;">Paste a study guide → generate a self-grading test</p>
+
+<!-- TEACHER PANEL -->
+<div class="card" id="teacherPanel">
+  <h2>Teacher: Create Test</h2>
+  <textarea id="studyGuide" rows="8" placeholder="Paste study guide here..."></textarea>
+  <input id="numQuestions" type="number" value="5" min="1" />
+  <button onclick="createTest()">Generate Test</button>
+  <p id="serverCode"></p>
+</div>
+
+<!-- STUDENT JOIN -->
+<div class="card hidden" id="studentJoin">
+  <h2>Student: Join Test</h2>
+  <input id="studentName" placeholder="Your name" />
+  <input id="joinCode" placeholder="Server code" />
+  <button onclick="startTest()">Start Test</button>
+</div>
+
+<!-- TEST PANEL -->
+<div class="card hidden" id="testPanel">
+  <h2 id="testTitle"></h2>
+  <div id="questions"></div>
+  <button onclick="submitTest()">Submit Test</button>
+</div>
+
+<!-- RESULTS -->
+<div class="card hidden" id="resultsPanel">
+  <h2>Results</h2>
+  <p id="scoreOutput"></p>
+</div>
+
+<script>
+/* =========================
+   SUPABASE SETUP (READY)
+   ========================= */
+const SUPABASE_URL = "https://YOUR_PROJECT_ID.supabase.co";
+const SUPABASE_ANON_KEY = "YOUR_PUBLIC_ANON_KEY";
+
+const supabase = supabaseJs.createClient(
+  SUPABASE_URL,
+  SUPABASE_ANON_KEY
+);
+
+/* =========================
+   APP STATE
+   ========================= */
+let generatedTest = [];
+let correctAnswers = [];
+let activeCode = "";
+
+/* =========================
+   UTILS
+   ========================= */
+function makeCode() {
+  return Math.random().toString(36).substring(2, 7).toUpperCase();
+}
+
+/* =========================
+   TEST GENERATION (MVP)
+   ========================= */
+function createTest() {
+  const text = document.getElementById("studyGuide").value;
+  const count = parseInt(document.getElementById("numQuestions").value);
+
+  if (!text.trim()) return alert("Paste a study guide first.");
+
+  const sentences = text.split(".").filter(s => s.length > 20);
+  generatedTest = [];
+  correctAnswers = [];
+
+  for (let i = 0; i < count; i++) {
+    const base = sentences[i % sentences.length];
+    const correct = base.trim();
+    const choices = shuffle([
+      correct,
+      "Incorrect option A",
+      "Incorrect option B",
+      "Incorrect option C"
+    ]);
+
+    generatedTest.push({
+      question: "Which statement best matches the study guide?",
+      choices
+    });
+
+    correctAnswers.push(choices.indexOf(correct));
+  }
+
+  activeCode = makeCode();
+  document.getElementById("serverCode").innerText =
+    "Server Code: " + activeCode;
+
+  document.getElementById("studentJoin").classList.remove("hidden");
+}
+
+/* =========================
+   STUDENT FLOW
+   ========================= */
+function startTest() {
+  const name = document.getElementById("studentName").value;
+  const code = document.getElementById("joinCode").value;
+
+  if (!name || code !== activeCode) {
+    alert("Invalid name or server code.");
+    return;
+  }
+
+  document.getElementById("studentJoin").classList.add("hidden");
+  document.getElementById("testPanel").classList.remove("hidden");
+  document.getElementById("testTitle").innerText =
+    "Test for " + name;
+
+  renderQuestions();
+}
+
+function renderQuestions() {
+  const container = document.getElementById("questions");
+  container.innerHTML = "";
+
+  generatedTest.forEach((q, i) => {
+    const div = document.createElement("div");
+    div.className = "question";
+    div.innerHTML = `<p><strong>Q${i + 1}:</strong> ${q.question}</p>`;
+
+    q.choices.forEach((c, j) => {
+      div.innerHTML += `
+        <label>
+          <input type="radio" name="q${i}" value="${j}">
+          ${c}
+        </label><br>`;
+    });
+
+    container.appendChild(div);
+  });
+}
+
+/* =========================
+   GRADING
+   ========================= */
+function submitTest() {
+  let score = 0;
+
+  generatedTest.forEach((_, i) => {
+    const selected = document.querySelector(
+      \`input[name="q${i}"]:checked\`
+    );
+    if (selected && parseInt(selected.value) === correctAnswers[i]) {
+      score++;
+    }
+  });
+
+  document.getElementById("testPanel").classList.add("hidden");
+  document.getElementById("resultsPanel").classList.remove("hidden");
+  document.getElementById("scoreOutput").innerText =
+    \`Score: ${score} / ${generatedTest.length}\`;
+}
+
+/* =========================
+   HELPERS
+   ========================= */
+function shuffle(arr) {
+  return [...arr].sort(() => Math.random() - 0.5);
+}
+</script>
+
+</body>
+</html>
